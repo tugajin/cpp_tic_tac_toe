@@ -1,8 +1,15 @@
 #include <iostream>
 #include <torch/torch.h>
+#include "game.hpp"
+#include "movelist.hpp"
+#include "util.hpp"
+#include "search.hpp"
 
-int main(void){
-    torch::Tensor x = torch::full({3, 3}, 1.5, torch::TensorOptions().dtype(torch::kFloat));
-    std::cout << x << std::endl;
+TeeStream Tee;
+
+int main(int argc, char *argv[]){
+    test_move_list();
+    test_pos();
+    test_search();
     return 0;
 }
