@@ -1,11 +1,13 @@
 #ifndef __GAME_HPP__
 #define __GAME_HPP__
 
+#include <array>
+#include <bitset>
+#include <functional>
 #include "common.hpp"
 #include "util.hpp"
 #include "movelist.hpp"
-
-
+namespace game {
 class Position {
 public:
     Position() {
@@ -20,6 +22,37 @@ public:
             this->enemy_pieces[i] = enemy_pieces[i];
         }
         this->pos_turn = turn;
+    }
+    Position(const uint32 h) {
+        auto hash = h;
+        if (hash & 1) {
+            this->pos_turn = WHITE;
+        } else {
+            this->pos_turn = BLACK;
+        }
+        hash >>= 1;
+        int self_pieces[POS_SIZE] = {};
+        int enemy_pieces[POS_SIZE] = {};
+        FOREACH_POS(i) {
+            auto piece = hash & 3;
+            const auto sq = POS_SIZE - i - 1;
+            if (piece == 0) {
+            } else if (piece == 1) {
+                self_pieces[sq] = 1;
+            } else if (piece == 2) {
+                enemy_pieces[sq] = 1;
+            }
+            hash >>= 2;
+        }
+        FOREACH_POS(i) {
+            if (this->turn() == BLACK) {
+                this->self_pieces[i] = self_pieces[i];
+                this->enemy_pieces[i] = enemy_pieces[i];
+            } else {
+                this->self_pieces[i] = enemy_pieces[i];
+                this->enemy_pieces[i] = self_pieces[i];
+            }
+        }
     }
     int piece_count(const int pieces[]) const {
         auto count = 0;
@@ -50,37 +83,62 @@ public:
         }
         return false;
     }
-    void dangerous_sq(int square[]) const {
-        auto find_dangerous_sq = [&](const int x, const int y, const int inc_x, const int inc_y) {
+    void find_special_sp(int square[], std::function<void(const int x, const int y, const int inc_x, const int inc_y)> func) const {
+        FOREACH_POS(i) { square[i] = 0; }
+        func(0,0,1,1);
+        func(0,2,1,-1);
+        for (auto i = 0; i < 3; i++) {
+            func(i,0,0,1);
+            func(0,i,1,0);
+        }
+    }
+    void reach_sq(int square[]) const {
+        auto func = [&](const int x, const int y, const int inc_x, const int inc_y) {
             auto self_num = 0;
-            auto dangerous_num = 0;
-            int dangerous_point[8] = {};
+            auto reach_num = 0;
+            int reach_point[8] = {};
             for (int sq_x = x, sq_y = y; sq_is_ok(sq_x) && sq_is_ok(sq_y); sq_x += inc_x, sq_y += inc_y) {
                 const auto sq = sq_x *3 + sq_y;
                 if (this->self(sq) == 1) {
                     self_num++;
                 }
                 if (this->self(sq) == 0 && this->enemy(sq) == 0) {
-                    dangerous_point[dangerous_num++] = sq;
+                    reach_point[reach_num++] = sq;
                 }
             }
             if (self_num == 2) {
+                for (auto i = 0; i < reach_num; i++) {
+                    square[reach_point[i]] = 1;
+                }
+            }
+        };
+        this->find_special_sp(square,func);
+    }
+    void dangerous_sq(int square[]) const {
+        auto func = [&](const int x, const int y, const int inc_x, const int inc_y) {
+            auto enemy_num = 0;
+            auto dangerous_num = 0;
+            int dangerous_point[8] = {};
+            for (int sq_x = x, sq_y = y; sq_is_ok(sq_x) && sq_is_ok(sq_y); sq_x += inc_x, sq_y += inc_y) {
+                const auto sq = sq_x *3 + sq_y;
+                if (this->enemy(sq) == 1) {
+                    enemy_num++;
+                }
+                if (this->self(sq) == 0 && this->enemy(sq) == 0) {
+                    dangerous_point[dangerous_num++] = sq;
+                }
+            }
+            if (enemy_num == 2) {
                 for (auto i = 0; i < dangerous_num; i++) {
                     square[dangerous_point[i]] = 1;
                 }
             }
         };
-        FOREACH_POS(i) { square[i] = 0; }
-        find_dangerous_sq(0,0,1,1);
-        find_dangerous_sq(0,2,1,-1);
-        for (auto i = 0; i < 3; i++) {
-            find_dangerous_sq(i,0,0,1);
-            find_dangerous_sq(0,i,1,0);
-        }
+        this->find_special_sp(square,func);
     }
     int has_win() const {
         int sq[POS_SIZE] = {};
-        this->dangerous_sq(sq);
+        this->reach_sq(sq);
         FOREACH_POS(i) {
             if (sq[i] == 1) {
                 return i;
@@ -99,7 +157,7 @@ public:
         p.enemy_pieces[action] = 1;
         return p;
     }
-    void legal_moves(MoveList &ml) const {
+    void legal_moves(movelist::MoveList &ml) const {
         FOREACH_POS(pos) {
             if (this->self_pieces[pos] == 0 && this->enemy_pieces[pos] == 0) {
                 ml.add(Move(pos));
@@ -141,14 +199,18 @@ public:
         auto hash_key_body = [&](const int sp[], const int ep[]) {
             uint32 k = 0;
             FOREACH_POS(i) {
-                k *= 10;
+                k <<= 2;
                 if (sp[i] == 1) {
-                    k += 2;
+                    k |= 1;
                 } else if (ep[i] == 1) {
-                    k += 3;
+                    k |= 2;
                 } else {
-                    k += 1;
+                    k |= 0;
                 }
+            }
+            k <<= 1;
+            if (this->turn() == WHITE) {
+                k |= 1;
             }
             return k;
         };
@@ -158,38 +220,57 @@ public:
             return hash_key_body(this->enemy_pieces, this->self_pieces);
         }
     }
-	friend std::ostream& operator<<(std::ostream& os, const Position& pos) {
-        os << (pos.hash_key())<<std::endl;
-        if (pos.turn() == BLACK) {
-            os << "BLACK" << std::endl;
+    std::string str() const {
+        std::string str = to_string(std::bitset<19>(this->hash_key())) + "\n";
+        if (this->turn() == BLACK) {
+            str += "BLACK\n";
         } else {
-            os << "WHITE" << std::endl;
+            str += "WHITE\n";
         }
         for (auto x = 0; x < 3; x ++) {
             for (auto y = 0; y < 3; y++) {
                 const auto sq = x * 3 + y;
-                if (pos.turn() == BLACK) {
-                    if (pos.self_pieces[sq] == 1) {
-                        os << "o";
-                    } else if (pos.enemy_pieces[sq] == 1) {
-                        os << "x";
+                if (this->turn() == BLACK) {
+                    if (this->self_pieces[sq] == 1) {
+                        str += "o";
+                    } else if (this->enemy_pieces[sq] == 1) {
+                        str += "x";
                     } else {
-                        os << "-";
+                        str += "-";
                     }
                 } else {
-                    if (pos.self_pieces[sq] == 1) {
-                        os << "x";
-                    } else if (pos.enemy_pieces[sq] == 1) {
-                        os << "o";
+                    if (this->self_pieces[sq] == 1) {
+                        str += "x";
+                    } else if (this->enemy_pieces[sq] == 1) {
+                        str += "o";
                     } else {
-                        os << "-";
+                        str += "-";
                     }
                 }
             }
-            os << std::endl;
+            str += "\n";
         }
+        return str;
+    }
+	friend std::ostream& operator<<(std::ostream& os, const Position& pos) {
+        os << pos.str();
 		return os;
 	}
+    Feature feature() const {
+        Feature feat;
+        //channel file rank
+        int reach_point[POS_SIZE] = {};
+        this->reach_sq(reach_point);
+        int dangerous_point[POS_SIZE] = {};
+        this->dangerous_sq(dangerous_point);
+        FOREACH_POS(i) {
+            feat[0][i] = this->self(i);
+            feat[1][i] = this->enemy(i);
+            feat[2][i] = reach_point[i];
+            feat[3][i] = dangerous_point[i];
+        }
+        return feat;
+    }
 private:
     int self_pieces[POS_SIZE];
     int enemy_pieces[POS_SIZE];
@@ -198,7 +279,7 @@ private:
 void test_pos() {
     
     Position pos;
-    MoveList ml;
+    movelist::MoveList ml;
     pos.legal_moves(ml);
     ASSERT2(ml.len() == 9, {
         Tee<<pos<<std::endl;
@@ -207,6 +288,11 @@ void test_pos() {
     ASSERT(!pos.is_done());
     ASSERT(!pos.is_lose());
     ASSERT(pos.is_ok());
+    Position pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
+    });
 
     pos = pos.next(ml[0]);
     ml.init();
@@ -218,6 +304,11 @@ void test_pos() {
         Tee<<pos<<std::endl;
         Tee<<pos.self(0)<<std::endl;
         Tee<<pos.enemy(0)<<std::endl;
+    });
+    pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
     });
     
     pos = pos.next(Move(3));
@@ -232,6 +323,11 @@ void test_pos() {
     });
     ASSERT(!pos.is_done());
     ASSERT(!pos.is_lose());
+    pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
+    });
 
     pos = pos.next(Move(1));
     ml.init();
@@ -240,6 +336,11 @@ void test_pos() {
     ASSERT(!pos.is_done());
     ASSERT(!pos.is_lose());
     ASSERT(pos.is_ok());
+    pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
+    });
 
     pos = pos.next(Move(4));
     ml.init();
@@ -249,6 +350,11 @@ void test_pos() {
     ASSERT(!pos.is_lose());
     ASSERT(pos.is_ok());
     ASSERT(pos.has_win() >= 0);
+    pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
+    });
 
     pos = pos.next(Move(2));
     ml.init();
@@ -259,5 +365,27 @@ void test_pos() {
     });
     ASSERT(pos.is_lose());
     ASSERT(pos.is_ok());
+    pos2 = Position(pos.hash_key());
+    ASSERT2(pos.hash_key() == pos2.hash_key(),{
+        Tee<<pos<<std::endl;
+        Tee<<pos2<<std::endl;
+    });
+}
+void test_nn() {
+    // Position pos;
+    // std::array<Move,7> ml = {Move(0), Move(1), Move(4), Move(8), Move(6), Move(2), Move(3)};
+    // for (auto m : ml) {
+    //     Tee<<pos<<std::endl;
+    //     auto f = pos.feature();
+    //     auto f0 = torch::tensor(torch::ArrayRef<int>(f[0]));
+    //     auto f1 = torch::tensor(torch::ArrayRef<int>(f[1]));
+    //     auto f2 = torch::tensor(torch::ArrayRef<int>(f[2]));
+    //     auto f3 = torch::tensor(torch::ArrayRef<int>(f[3]));
+    //     auto f_all = torch::cat({f0, f1, f2, f3}).reshape({1,4,3,3});
+    //     Tee<<f_all<<std::endl;
+    //     Tee<<"--------------------------\n";
+    //     pos = pos.next(m);
+    // }
+}
 }
 #endif

@@ -13,8 +13,8 @@ from game import *
 # パラメータの準備
 DN_FILTERS  = 256 # 畳み込み層のカーネル数（本家は256）
 DN_RESIDUAL_NUM =  16 # 残差ブロックの数（本家は19）
-DN_INPUT_SHAPE = (3, 4, 14) # 入力シェイプ
-DN_OUTPUT_SIZE = 132 # 行動数(駒の移動先(12)*駒の移動元(11))
+DN_INPUT_SHAPE = (3, 3, 4) # 入力シェイプ
+DN_OUTPUT_SIZE = 9 # 配置先(3*3)
 
 class ResNetBlock(nn.Module):
     def __init__(self, channels):
@@ -36,7 +36,7 @@ class ResNetBlock(nn.Module):
 class SingleNet(nn.Module):
     def __init__(self, blocks=15, channels=192, fcl=256):
         super(SingleNet, self).__init__()
-        self.convl1 = nn.Conv2d(in_channels=14, out_channels=channels, kernel_size=3, padding=1, bias=False)
+        self.convl1 = nn.Conv2d(in_channels=4, out_channels=channels, kernel_size=3, padding=1, bias=False)
         
         self.norm1 = nn.BatchNorm2d(channels)
 
@@ -46,10 +46,11 @@ class SingleNet(nn.Module):
         # value head
         self.value_conv1 = nn.Conv2d(in_channels=channels, out_channels=DN_OUTPUT_SIZE, kernel_size=1, bias=False)
         self.value_norm1 = nn.BatchNorm2d(DN_OUTPUT_SIZE)
-        self.value_fc1 = nn.Linear(1584, fcl)
+        self.value_fc1 = nn.Linear(81, fcl)
         self.value_fc2 = nn.Linear(fcl, 1)
 
     def forward(self, feature1):
+
         x1_1 = self.convl1(feature1)
         x = F.relu(self.norm1(x1_1))
 
@@ -78,16 +79,15 @@ def print_network():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
    
     model = SingleNet()
-    model.load_state_dict(torch.load('./model/best_single.h5',device))
+    model.load_state_dict(torch.load('./model/best_single.h5'))
     model = model.to(device)
     model.eval()
     state = State()
 
     # 推論のための入力データのシェイプの変換
+    x = np.array(state.feature())
     file, rank, channel = DN_INPUT_SHAPE
-    x = np.array(state.pieces_array())
-    x = x.reshape(channel, file, rank)
-    x = np.array([x])
+    x = x.reshape(1, channel, file, rank)
     x = torch.tensor(x,dtype=torch.float32)
        
     x = x.to(device)
@@ -99,7 +99,15 @@ def print_network():
     value = y[0].item()
     print(value)
 
+def conv_jit():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = SingleNet()
+    model.load_state_dict(torch.load('./model/best_single.h5'))
+    sm = torch.jit.script(model)
+    sm.save("./model/best_single_jit.pt")
+
 # 動作確認
 if __name__ == '__main__':
-    single_network()
-    print_network()
+    #single_network()
+    #print_network()
+    conv_jit()

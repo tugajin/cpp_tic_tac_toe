@@ -3,7 +3,7 @@
 
 #include "common.hpp"
 #include "util.hpp"
-
+namespace movelist {
 class MoveList {
 private:
     static constexpr int MAX_LIST_SIZE = 9;
@@ -31,10 +31,15 @@ public:
 	Move operator [] (const int i) const {
 		return *(this->moves+i);
 	}
-	friend std::ostream& operator<<(std::ostream& os,  const MoveList& ml) {
-        for (auto i = 0; i < ml.len(); i++) {
-            os << i << ":" << ml[i]<<std::endl;
+    std::string str() const {
+        std::string s;
+        for (auto i = 0; i < this->len(); i++) {
+            s += to_string(i) + ":" + to_string(static_cast<int>(this->moves[i])) +"\n";
         }
+        return s;
+    }
+	friend std::ostream& operator<<(std::ostream& os,  const MoveList& ml) {
+        os << ml.str();
 		return os;
 	}
 };
@@ -52,5 +57,6 @@ void test_move_list() {
     }
     ml.init();
     ASSERT(ml.len() == 0);
+}
 }
 #endif

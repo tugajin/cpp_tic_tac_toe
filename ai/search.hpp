@@ -2,7 +2,9 @@
 #include "game.hpp"
 #include "common.hpp"
 
-int search(Position &pos, int alpha, int beta) {
+namespace search {
+
+int search(game::Position &pos, int alpha, int beta) {
     ASSERT2(pos.is_ok(),{
         Tee<<pos<<std::endl;
     });
@@ -12,7 +14,7 @@ int search(Position &pos, int alpha, int beta) {
     if (pos.is_lose()) {
         return -1;
     }
-    MoveList ml;
+    movelist::MoveList ml;
     pos.legal_moves(ml);
     auto best_score = -1;
     for (const auto m : ml) {
@@ -32,7 +34,7 @@ int search(Position &pos, int alpha, int beta) {
     }
     return best_score;
 }
-uint32 perft(Position &pos, std::unordered_map<uint32, int> &hash) {
+uint32 perft(game::Position &pos, std::unordered_map<uint32, int> &hash) {
     ASSERT2(pos.is_ok(),{
         Tee<<pos<<std::endl;
     });
@@ -45,7 +47,7 @@ uint32 perft(Position &pos, std::unordered_map<uint32, int> &hash) {
     if (pos.is_lose()) {
         return 1;
     }
-    MoveList ml;
+    movelist::MoveList ml;
     pos.legal_moves(ml);
     auto node_num = 0u;
     for (const auto m : ml) {
@@ -60,7 +62,9 @@ uint32 perft(Position &pos, std::unordered_map<uint32, int> &hash) {
 }
 void test_search() {
     std::unordered_map<uint32,int> hash;
-    Position pos;
+    game::Position pos;
     Tee<<perft(pos,hash)<<std::endl;
     Tee<<hash.size()<<std::endl;
+}
+
 }

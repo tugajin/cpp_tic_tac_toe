@@ -1,15 +1,16 @@
-#include <iostream>
-#include <torch/torch.h>
 #include "game.hpp"
 #include "movelist.hpp"
 #include "util.hpp"
 #include "search.hpp"
+#include "selfplay.hpp"
 
 TeeStream Tee;
 
 int main(int argc, char *argv[]){
-    test_move_list();
-    test_pos();
-    test_search();
+    movelist::test_move_list();
+    game::test_pos();
+    search::test_search();
+    game::test_nn();
+    selfplay::test_selfplay();
     return 0;
 }
