@@ -2,9 +2,12 @@
 #define __COMMON_HPP__
 
 constexpr int POS_SIZE = 9;
-#define FOREACH_POS(i) for (auto (i) = 0; (i) < POS_SIZE; (i)++)
+constexpr int FEAT_SIZE = 4;
 
-typedef std::array<std::array<int,9>,4> Feature;
+#define REP(i,e) for (auto (i) = 0; (i) < (e); ++(i))
+#define REP_POS(i) for (auto (i) = 0; (i) < POS_SIZE; ++(i))
+
+typedef std::vector<std::vector<int>> Feature;
 typedef double NNScore;
 
 enum Move : int {
@@ -13,7 +16,17 @@ enum Move : int {
 enum Color : int {
     BLACK = 1, WHITE = -1
 };
-
+std::string color_str(const Color c) {
+    if (c == BLACK) {
+        return "BLACK";
+    } else {
+        return "WHITE";
+    }
+}
+std::ostream& operator<<(std::ostream& os, const Color c) {
+    os << color_str(c);
+    return os;
+}
 inline Color change_turn(const Color turn) {
     return static_cast<Color>(static_cast<int>(turn) * -1);
 }
@@ -24,12 +37,15 @@ inline bool move_is_ok(const Move m) {
 inline bool sq_is_ok(const int sq) {
     return (sq >= 0 && sq <= 2);
 }
-inline void init_feat(Feature &feat) {
-    for (auto &f : feat) {
-        for (auto &f2 : f) {
-            f2 = 0;
-        }
+
+NNScore to_nnscore(const float sc) {
+    auto score = static_cast<int>(sc * 10000);
+    if (score >= 10000) {
+        score = 9999;
+    } else if (score <= -10000) {
+        score = -9999;
     }
+    return static_cast<NNScore>(static_cast<double>(score) / 10000.0);
 }
 
 #endif

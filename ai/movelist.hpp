@@ -33,7 +33,7 @@ public:
 	}
     std::string str() const {
         std::string s;
-        for (auto i = 0; i < this->len(); i++) {
+        REP(i, this->len()) {
             s += to_string(i) + ":" + to_string(static_cast<int>(this->moves[i])) +"\n";
         }
         return s;
@@ -46,7 +46,7 @@ public:
 void test_move_list() {
     MoveList ml;
     ASSERT(ml.len() == 0);
-    for (auto i = 0; i < 9; i++) {
+    REP(i, 9) {
         const auto m = Move(i);
         ml.add(m);
         ASSERT2(ml.len() == i+1,{

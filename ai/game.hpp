@@ -7,17 +7,18 @@
 #include "common.hpp"
 #include "util.hpp"
 #include "movelist.hpp"
+
 namespace game {
 class Position {
 public:
     Position() {
-        FOREACH_POS(i){
+        REP_POS(i){
             this->self_pieces[i] = this->enemy_pieces[i] = 0;
         }
         this->pos_turn = BLACK;
     }
     Position(const int self_pieces[], const int enemy_pieces[], const Color turn) {
-        FOREACH_POS(i) {
+        REP_POS(i) {
             this->self_pieces[i] = self_pieces[i];
             this->enemy_pieces[i] = enemy_pieces[i];
         }
@@ -33,7 +34,7 @@ public:
         hash >>= 1;
         int self_pieces[POS_SIZE] = {};
         int enemy_pieces[POS_SIZE] = {};
-        FOREACH_POS(i) {
+        REP_POS(i) {
             auto piece = hash & 3;
             const auto sq = POS_SIZE - i - 1;
             if (piece == 0) {
@@ -44,7 +45,7 @@ public:
             }
             hash >>= 2;
         }
-        FOREACH_POS(i) {
+        REP_POS(i) {
             if (this->turn() == BLACK) {
                 this->self_pieces[i] = self_pieces[i];
                 this->enemy_pieces[i] = enemy_pieces[i];
@@ -56,7 +57,7 @@ public:
     }
     int piece_count(const int pieces[]) const {
         auto count = 0;
-        FOREACH_POS(i) {
+        REP_POS(i) {
             if (pieces[i] == 1) {
                 count++;
             }
@@ -77,17 +78,17 @@ public:
         };
         if (is_comp(0,0,1,1)) { return true; }
         if (is_comp(0,2,1,-1)) { return true; }
-        for (auto i = 0; i < 3; i++) {
+        REP(i,3) {
             if (is_comp(i,0,0,1)) { return true; }
             if (is_comp(0,i,1,0)) { return true; }
         }
         return false;
     }
     void find_special_sp(int square[], std::function<void(const int x, const int y, const int inc_x, const int inc_y)> func) const {
-        FOREACH_POS(i) { square[i] = 0; }
+        REP_POS(i) { square[i] = 0; }
         func(0,0,1,1);
         func(0,2,1,-1);
-        for (auto i = 0; i < 3; i++) {
+        REP(i,3) {
             func(i,0,0,1);
             func(0,i,1,0);
         }
@@ -107,7 +108,7 @@ public:
                 }
             }
             if (self_num == 2) {
-                for (auto i = 0; i < reach_num; i++) {
+                REP(i, reach_num) {
                     square[reach_point[i]] = 1;
                 }
             }
@@ -129,7 +130,7 @@ public:
                 }
             }
             if (enemy_num == 2) {
-                for (auto i = 0; i < dangerous_num; i++) {
+                REP(i, dangerous_num) {
                     square[dangerous_point[i]] = 1;
                 }
             }
@@ -139,7 +140,7 @@ public:
     int has_win() const {
         int sq[POS_SIZE] = {};
         this->reach_sq(sq);
-        FOREACH_POS(i) {
+        REP_POS(i) {
             if (sq[i] == 1) {
                 return i;
             }
@@ -158,7 +159,7 @@ public:
         return p;
     }
     void legal_moves(movelist::MoveList &ml) const {
-        FOREACH_POS(pos) {
+        REP_POS(pos) {
             if (this->self_pieces[pos] == 0 && this->enemy_pieces[pos] == 0) {
                 ml.add(Move(pos));
             }
@@ -177,7 +178,7 @@ public:
         if (this->pos_turn != BLACK && this->pos_turn != WHITE) {
             return false;
         }
-        FOREACH_POS(i) {
+        REP_POS(i) {
             if (this->self(i) == 1 && this->enemy(i) == 1) {
                 return false;
             }
@@ -198,7 +199,7 @@ public:
     uint32 hash_key() const {
         auto hash_key_body = [&](const int sp[], const int ep[]) {
             uint32 k = 0;
-            FOREACH_POS(i) {
+            REP_POS(i) {
                 k <<= 2;
                 if (sp[i] == 1) {
                     k |= 1;
@@ -222,13 +223,10 @@ public:
     }
     std::string str() const {
         std::string str = to_string(std::bitset<19>(this->hash_key())) + "\n";
-        if (this->turn() == BLACK) {
-            str += "BLACK\n";
-        } else {
-            str += "WHITE\n";
-        }
-        for (auto x = 0; x < 3; x ++) {
-            for (auto y = 0; y < 3; y++) {
+        str += to_string(this->hash_key()) + "\n";
+        str += color_str(this->turn()) + "\n";
+        REP(x, 3) {
+            REP(y, 3) {
                 const auto sq = x * 3 + y;
                 if (this->turn() == BLACK) {
                     if (this->self_pieces[sq] == 1) {
@@ -257,13 +255,13 @@ public:
 		return os;
 	}
     Feature feature() const {
-        Feature feat;
+        Feature feat(FEAT_SIZE, std::vector<int>(POS_SIZE, 0));
         //channel file rank
         int reach_point[POS_SIZE] = {};
         this->reach_sq(reach_point);
         int dangerous_point[POS_SIZE] = {};
         this->dangerous_sq(dangerous_point);
-        FOREACH_POS(i) {
+        REP_POS(i) {
             feat[0][i] = this->self(i);
             feat[1][i] = this->enemy(i);
             feat[2][i] = reach_point[i];
@@ -276,6 +274,9 @@ private:
     int enemy_pieces[POS_SIZE];
     Color pos_turn;
 };
+Position from_hash(const uint32 h) {
+    return Position(h);
+}
 void test_pos() {
     
     Position pos;
@@ -386,6 +387,18 @@ void test_nn() {
     //     Tee<<"--------------------------\n";
     //     pos = pos.next(m);
     // }
+    // Position pos;
+    // std::vector<at::Tensor> tensor_list;
+    // auto f = pos.feature();
+    // auto f0 = torch::tensor(torch::ArrayRef<int>(f[0]));
+    // auto f1 = torch::tensor(torch::ArrayRef<int>(f[1]));
+    // auto f2 = torch::tensor(torch::ArrayRef<int>(f[2]));
+    // auto f3 = torch::tensor(torch::ArrayRef<int>(f[3]));
+    // auto f_all = torch::cat({f0, f1, f2, f3}).reshape({FEAT_SIZE, 3, 3});
+    // tensor_list.push_back(f_all);
+    // tensor_list.push_back(f_all);
+    // torch::Tensor tsr = torch::stack(tensor_list);
+    // Tee<<tsr<<std::endl;
 }
 }
 #endif

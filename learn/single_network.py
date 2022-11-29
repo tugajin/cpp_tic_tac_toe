@@ -34,7 +34,7 @@ class ResNetBlock(nn.Module):
 
         return F.relu(out + x)
 class SingleNet(nn.Module):
-    def __init__(self, blocks=15, channels=192, fcl=256):
+    def __init__(self, blocks=3, channels=192, fcl=256):
         super(SingleNet, self).__init__()
         self.convl1 = nn.Conv2d(in_channels=4, out_channels=channels, kernel_size=3, padding=1, bias=False)
         
@@ -100,14 +100,14 @@ def print_network():
     print(value)
 
 def conv_jit():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SingleNet()
     model.load_state_dict(torch.load('./model/best_single.h5'))
+    model.eval()
     sm = torch.jit.script(model)
     sm.save("./model/best_single_jit.pt")
 
 # 動作確認
 if __name__ == '__main__':
-    #single_network()
+    single_network()
     #print_network()
     conv_jit()

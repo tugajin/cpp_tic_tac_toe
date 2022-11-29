@@ -41,6 +41,12 @@ class State:
     def feature(self):
         return self.pos.feature()
 
+def from_hash(h):
+    return State(gamelibs.from_hash(h))
+
+def val_to_move(v):
+    return gamelibs.val_to_move(v)
+
 def append_pos_dict(k):
     if k in pos_dict:
         num = pos_dict[k]

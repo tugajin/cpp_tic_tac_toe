@@ -1,71 +1,80 @@
+#ifndef __SELFPLAY_HPP__
+#define __SELFPLAY_HPP__
+
 #include <vector>
 #include <utility>
 #include <thread>
+#include <fstream>
+#include <filesystem>
 #include <torch/torch.h>
 #include <torch/script.h>
 #include "nlohmann/json.hpp"
 #include "util.hpp"
 #include "common.hpp"
 #include "game.hpp"
-using json = nlohmann::json;
+#include "ubfm.hpp"
 
 namespace selfplay {
 
-struct ReplayInfo {
-    uint32 hash;
-    NNScore score;
-    ReplayInfo(uint32 h, NNScore s) {
-        this->hash = h;
-        this->score = s;
+using json = nlohmann::json;
+
+class ReplayBuffer {
+public:
+    ReplayBuffer() {
+        this->info = {};
     }
-    ReplayInfo(const game::Position &pos, NNScore s) {
-        this->hash = pos.hash_key();
-        this->score = s;
+    void open() {
+        this->info.clear();
+        std::filesystem::create_directory("data");
+        auto filename = "./data/" + timestamp() + "_" + to_string(my_rand(9999)) + ".json";
+        this->ofs.open(filename);
     }
+    void close() {
+        this->ofs.close();
+        this->info.clear();
+    }
+    void push_back(const uint32 hash, const NNScore sc) {
+        info.push_back({{"p", hash},{"s", sc}});
+    }
+    void write_data() {
+        this->ofs<<this->info.dump();
+    }
+private:
+    json info;
+    std::ofstream ofs;
 };
 
-typedef std::vector<ReplayInfo> ReplayBuffer;
+extern ReplayBuffer g_replay_buffer;
 
-std::string dump(const ReplayBuffer & buf) {
-    json info = {};
-    for (auto &b : buf) {
-        info.push_back({{"p", b.hash},{"s", b.score}});
+void push_back(const uint32 hash, const NNScore score) {
+    g_replay_buffer.push_back(hash, score);
+}
+
+void execute_selfplay() {
+    ubfm::g_searcher.allocate();
+    ubfm::g_searcher.load_model();
+    Tee<<"selfplay\n";
+    REP(i, INT_MAX) {
+        game::Position pos;
+        g_replay_buffer.open();
+        while(true) {
+            if (pos.is_done()) {
+                g_replay_buffer.write_data();
+                g_replay_buffer.close();
+                break;
+            }
+            ubfm::g_searcher.search<true>(pos, 50);
+            auto best_move = ubfm::g_searcher.best_move();
+            pos = pos.next(best_move);
+        }
+        if (i && i % 10 == 0) {
+            Tee<<"\n";
+            ubfm::g_searcher.load_model();
+        }
+        Tee<<".";
     }
-    return info.dump();
 }
 void test_nn() {
-    // Position pos;
-    // NNScore sc = 0.0;
-    // ReplayInfo rp(pos,sc);
-    // ReplayBuffer buf;
-    
-    // buf.push_back(rp);
-    
-    // pos = pos.next(Move(0));
-    // rp = ReplayInfo(pos,sc);
-    // buf.push_back(rp);
-    // Tee<<dump(buf)<<std::endl;
-    torch::jit::script::Module module;
-    try {
-        torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
-        // Deserialize the ScriptModule from a file using torch::jit::load().
-        module = torch::jit::load("../traced_resnet_model.pt",device);
-        std::vector<torch::jit::IValue> inputs;
-        int n = my_rand(10) + 1;
-        inputs.push_back(torch::ones({n, 4, 3, 3},device));
-
-        // Execute the model and turn its output into a tensor.
-        Tee<<"forward\n";
-        at::Tensor output = module.forward(inputs).toTensor();
-        std::cout << output.sizes() << '\n';
-        std::cout << output[0][0].item<float>() << '\n';
-    }
-    catch (const c10::Error& e) {
-        std::cerr << "error loading the model\n";
-        exit(1);
-    }
-
-  std::cout << "ok\n";
 }
 void test_selfplay() {
     std::thread th_a(test_nn);
@@ -73,3 +82,4 @@ void test_selfplay() {
 }
 
 }
+#endif

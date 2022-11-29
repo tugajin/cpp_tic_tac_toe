@@ -22,31 +22,32 @@ PYBIND11_PLUGIN(gamelibs) {
     m.def("move_to_val",[](Move x){
         return static_cast<int>(x);
     });
-
-    py::class_<MoveList>(m, "MoveList")
+    m.def("from_hash",&game::from_hash);
+    
+    py::class_<movelist::MoveList>(m, "MoveList")
         .def(py::init<>())
-        .def("init", &MoveList::init)
-        .def("add", &MoveList::add)
-        .def("begin", &MoveList::begin)
-        .def("end", &MoveList::end)
-        .def("len", &MoveList::len)
-        .def("__str__", &MoveList::str)
-        .def("__getitem__", &MoveList::operator[]);
+        .def("init", &movelist::MoveList::init)
+        .def("add", &movelist::MoveList::add)
+        .def("begin", &movelist::MoveList::begin)
+        .def("end", &movelist::MoveList::end)
+        .def("len", &movelist::MoveList::len)
+        .def("__str__", &movelist::MoveList::str)
+        .def("__getitem__", &movelist::MoveList::operator[]);
 
-    py::class_<Position>(m, "Position")
+    py::class_<game::Position>(m, "Position")
         .def(py::init<>())
-        .def("turn", &Position::turn)
-        .def("self", &Position::self)
-        .def("enemy", &Position::enemy)
-        .def("next",&Position::next)
-        .def("__str__",&Position::str)
-        .def("has_win",&Position::has_win)
-        .def("is_draw",&Position::is_draw)
-        .def("is_lose",&Position::is_lose)
-        .def("is_done",&Position::is_done)
-        .def("hash_key",&Position::hash_key)
-        .def("legal_moves",&Position::legal_moves)
-        .def("feature",&Position::feature);
+        .def("turn", &game::Position::turn)
+        .def("self", &game::Position::self)
+        .def("enemy", &game::Position::enemy)
+        .def("next",&game::Position::next)
+        .def("__str__",&game::Position::str)
+        .def("has_win",&game::Position::has_win)
+        .def("is_draw",&game::Position::is_draw)
+        .def("is_lose",&game::Position::is_lose)
+        .def("is_done",&game::Position::is_done)
+        .def("hash_key",&game::Position::hash_key)
+        .def("legal_moves",&game::Position::legal_moves)
+        .def("feature",&game::Position::feature);
 
     return m.ptr();
 }
