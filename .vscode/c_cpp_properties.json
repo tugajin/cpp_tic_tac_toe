@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/tugajin/Documents/libtorch/include",
-                "/home/tugajin/Documents/libtorch/include/torch/csrc/api/include"
+                "/home/tugajin/Documents/libtorch/include/torch/csrc/api/include",
+                "${workspaceFolder}/ai",
+                "/usr/include/python3.8"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
