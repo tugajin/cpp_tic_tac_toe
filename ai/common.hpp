@@ -2,7 +2,7 @@
 #define __COMMON_HPP__
 
 constexpr int POS_SIZE = 9;
-constexpr int FEAT_SIZE = 4;
+constexpr int FEAT_SIZE = 10;
 
 #define REP(i,e) for (auto (i) = 0; (i) < (e); ++(i))
 #define REP_POS(i) for (auto (i) = 0; (i) < POS_SIZE; ++(i))

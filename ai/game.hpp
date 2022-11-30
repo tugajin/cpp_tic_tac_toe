@@ -261,11 +261,19 @@ public:
         this->reach_sq(reach_point);
         int dangerous_point[POS_SIZE] = {};
         this->dangerous_sq(dangerous_point);
+        auto reach_sq_num = this->piece_count(reach_point);
+        auto dangerous_sq_num = this->piece_count(dangerous_point);
         REP_POS(i) {
             feat[0][i] = this->self(i);
             feat[1][i] = this->enemy(i);
             feat[2][i] = reach_point[i];
             feat[3][i] = dangerous_point[i];
+            feat[4][i] = (reach_sq_num == 0) ? 1 : 0;
+            feat[5][i] = (reach_sq_num == 1) ? 1 : 0;
+            feat[6][i] = (reach_sq_num == 2) ? 1 : 0;
+            feat[7][i] = (dangerous_sq_num == 0) ? 1 : 0;
+            feat[8][i] = (dangerous_sq_num == 1) ? 1 : 0;
+            feat[9][i] = (dangerous_sq_num == 2) ? 1 : 0;
         }
         return feat;
     }

@@ -13,7 +13,7 @@ from game import *
 # パラメータの準備
 DN_FILTERS  = 256 # 畳み込み層のカーネル数（本家は256）
 DN_RESIDUAL_NUM =  16 # 残差ブロックの数（本家は19）
-DN_INPUT_SHAPE = (3, 3, 4) # 入力シェイプ
+DN_INPUT_SHAPE = (3, 3, 10) # 入力シェイプ
 DN_OUTPUT_SIZE = 9 # 配置先(3*3)
 
 class ResNetBlock(nn.Module):
@@ -36,7 +36,7 @@ class ResNetBlock(nn.Module):
 class SingleNet(nn.Module):
     def __init__(self, blocks=3, channels=192, fcl=256):
         super(SingleNet, self).__init__()
-        self.convl1 = nn.Conv2d(in_channels=4, out_channels=channels, kernel_size=3, padding=1, bias=False)
+        self.convl1 = nn.Conv2d(in_channels=10, out_channels=channels, kernel_size=3, padding=1, bias=False)
         
         self.norm1 = nn.BatchNorm2d(channels)
 
@@ -109,5 +109,5 @@ def conv_jit():
 # 動作確認
 if __name__ == '__main__':
     single_network()
-    #print_network()
+    print_network()
     conv_jit()
