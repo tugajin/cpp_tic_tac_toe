@@ -7,7 +7,7 @@
 
 TeeStream Tee;
 namespace ubfm {
-UBFMSearcher g_searcher;
+UBFMSearcherGlobal g_searcher_global;
 }
 namespace selfplay {
 ReplayBuffer g_replay_buffer;
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]){
     //search::test_search();
     //game::test_nn();
     //selfplay::test_selfplay();
-    //ubfm::test_ubfm2();
-    selfplay::execute_selfplay();
+    ubfm::test_ubfm();
+    //selfplay::execute_selfplay();
     return 0;
 }
