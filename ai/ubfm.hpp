@@ -161,7 +161,6 @@ private:
     Node *next_child2(const Node *node) const;
     void update_node(Node *node);
     void add_node(const game::Position &pos,const Move parent_move, int ply);
-    template<bool is_descent = false>void search_init(const game::Position &/*pos*/) {}
     int thread_id;
     std::thread *thread;
     UBFMSearcherGroup *group;
@@ -186,19 +185,16 @@ public:
         return *this;
     }*/
     void init();
-    void set_pos(game::Position * pos);
+    void load_model();
     void run();
     void join();
     torch::Device device;
     torch::jit::script::Module module;
-    game::Position root_pos;
     Lockable lock_gpu;
     int gpu_id;
-    static constexpr int THREAD_NUM = 1;
 
 private:
     std::vector<UBFMSearcherLocal> worker;
-
 };
 
 class UBFMSearcherGlobal {
@@ -206,15 +202,20 @@ public:
     std::unique_ptr<Node> nodes;
     Node root_node;
     void init();
+    void load_model();
+    void clear_tree();
     void run();
     void join();
-    void set_pos(game::Position *pos);
     void choice_best_move();
     void choice_best_move_e_greedy();
     void add_replay_buffer(const Node * node) const ;
+
+    int GPU_NUM = 1;
+    int THREAD_NUM = 1;
+    double TEMPERATURE = 0.0;
+    uint32 DESCENT_PO_NUM = 2000;
+    bool IS_DESCENT = false;
 private:
-    double temperature = 0.0;
-    static constexpr int GPU_NUM = 1;
     std::vector<UBFMSearcherGroup> worker;
 };
 
@@ -227,15 +228,11 @@ NNScore noise(double div = 1000) {
 }
 
 Move think_ubfm(game::Position &pos) {
-    g_searcher_global.set_pos(&pos);
+    assert(g_searcher_global.root_node.n == 0);
+    g_searcher_global.root_node.pos = pos;
     g_searcher_global.run();
     g_searcher_global.join();
-    if (false) {
-        g_searcher_global.choice_best_move_e_greedy();
-        g_searcher_global.add_replay_buffer(&g_searcher_global.root_node);
-    } else {
-        g_searcher_global.choice_best_move();
-    }
+    g_searcher_global.choice_best_move();
     return g_searcher_global.root_node.best_move;
 }
 
@@ -245,7 +242,19 @@ void UBFMSearcherGlobal::init() {
     REP(i, UBFMSearcherGlobal::GPU_NUM) {
         this->worker.emplace_back(i);
         this->worker[i].init();
+        this->worker[i].load_model();
     }
+    this->clear_tree();
+}
+
+void UBFMSearcherGlobal::load_model() {
+    REP(i, UBFMSearcherGlobal::GPU_NUM) {
+        this->worker[i].load_model();
+    }
+}
+
+void UBFMSearcherGlobal::clear_tree() {
+    this->root_node.init();
     this->nodes = std::make_unique<Node>(); 
 }
 
@@ -257,12 +266,6 @@ void UBFMSearcherGlobal::run() {
 void UBFMSearcherGlobal::join() {
     REP(i, UBFMSearcherGlobal::GPU_NUM) {
         this->worker[i].join();
-    }
-}
-
-void UBFMSearcherGlobal::set_pos(game::Position *pos) {
-    REP(i, UBFMSearcherGlobal::GPU_NUM) {
-        this->worker[i].set_pos(pos);
     }
 }
 
@@ -297,7 +300,6 @@ void UBFMSearcherGlobal::choice_best_move() {
 }
 
 void UBFMSearcherGlobal::choice_best_move_e_greedy() {
-
     std::vector<NNScore> scores;
     REP(i, this->root_node.child_len) {
         scores.push_back(NNScore(0.0));
@@ -323,7 +325,7 @@ void UBFMSearcherGlobal::choice_best_move_e_greedy() {
         }
     }
     auto index = -1;
-    if (!find_resolved_flag && rand_double() < this->temperature) {
+    if (!find_resolved_flag && rand_double() < this->TEMPERATURE) {
         index = my_rand(this->root_node.child_len);
     } else {
         auto iter = std::max_element(scores.begin(), scores.end());
@@ -339,12 +341,12 @@ void UBFMSearcherGroup::init() {
     this->worker.shrink_to_fit();
 
     Tee<<"init group:"<<this->gpu_id<<" worker\n";
-    REP(i, UBFMSearcherGroup::THREAD_NUM) {
+    REP(i, g_searcher_global.THREAD_NUM) {
         this->worker.emplace_back(this,i);
     }
-
+}
+void UBFMSearcherGroup::load_model() {
     this->lock_gpu.lock();
-    Tee<<"load model:"<<this->gpu_id<<"\n";
     REP(i, 10) {
         try {
             this->module = torch::jit::load("./model/best_single_jit.pt",this->device);
@@ -361,23 +363,25 @@ void UBFMSearcherGroup::init() {
     std::exit(EXIT_FAILURE);
 }
 
-void UBFMSearcherGroup::set_pos(game::Position * pos) {
-    this->root_pos = *pos;
-}
 void UBFMSearcherGroup::run() {
-    REP(i, UBFMSearcherGroup::THREAD_NUM) {
+    REP(i, g_searcher_global.THREAD_NUM) {
         this->worker[i].run();
     }
 }
 void UBFMSearcherGroup::join() {
-    REP(i, UBFMSearcherGroup::THREAD_NUM) {
+    REP(i, g_searcher_global.THREAD_NUM) {
         this->worker[i].join();
     }
 }
 void UBFMSearcherLocal::run() {
 	this->thread = new std::thread([this]() {
-        Tee<<"thread:"<<this->thread_id<<" start"<<std::endl;
-        this->search<false>(g_searcher_global.root_node.pos, int(20000000 / UBFMSearcherGroup::THREAD_NUM));
+        //Tee<<"thread:"<<this->thread_id<<" start"<<std::endl;
+        if (g_searcher_global.IS_DESCENT) {
+            assert(g_searcher_global.DESCENT_PO_NUM > 0);
+            this->search<true>(g_searcher_global.root_node.pos, g_searcher_global.DESCENT_PO_NUM);
+        } else {
+            this->search<false>(g_searcher_global.root_node.pos, int(2000 / g_searcher_global.THREAD_NUM));
+        }
     });
 }
 void UBFMSearcherLocal::join() {
@@ -388,7 +392,6 @@ void UBFMSearcherLocal::join() {
 template<bool is_descent>void UBFMSearcherLocal::search(const game::Position &pos, const int simulation_num) {
     
     const auto is_out = (this->thread_id == 0) && (this->group->gpu_id == 0);
-    this->search_init<is_descent>(pos);
     
     REP(i, simulation_num) {
         //Tee<<"start simulation:" << i <<"\n";
@@ -407,22 +410,15 @@ template<bool is_descent>void UBFMSearcherLocal::search(const game::Position &po
         }
     }
     if (is_out) {
-        Tee<<g_searcher_global.root_node.str()<<std::endl;
+        //Tee<<g_searcher_global.root_node.str()<<std::endl;
     }
-    // if (is_descent) {
-    //     this->choice_best_move_e_greedy();
-    //     this->add_replay_buffer(&g_searcher_global.root_node);
-    // } else {
-    //     this->choice_best_move();
-    // }
 }
 
 void UBFMSearcherLocal::evaluate(Node *node) {
-   //Tee<<"start search:"<<this->thread_id<<std::endl;
-    if (node == nullptr) {
-        Tee<<"???????"<<this->thread_id<<std::endl;
-        return;
-    }
+    // if (node == nullptr) {
+    //     Tee<<"???????"<<this->thread_id<<std::endl;
+    //     return;
+    // }
     ASSERT(node != nullptr);
     node->lock_node.lock();
     if (node->is_resolved()) {
@@ -442,11 +438,9 @@ void UBFMSearcherLocal::evaluate(Node *node) {
         this->evaluate(next_node);
     }
     node->lock_node.lock();
-    //Tee<<"update node:"<<this->thread_id<<std::endl;
     this->update_node(node);
     
     node->lock_node.unlock();
-    //Tee<<"end search:"<<this->thread_id<<std::endl;
 }
 
 void UBFMSearcherLocal::evaluate_descent(Node *node) {
@@ -475,8 +469,6 @@ void UBFMSearcherLocal::expand(Node *node) {
     auto moveList = movelist::MoveList();
     node->pos.legal_moves(moveList);
     
-    //node->lock_node.lock();
-    
     node->child_len = moveList.len();
     node->child_nodes = std::make_unique<std::unique_ptr<Node>[]>(node->child_len);
     REP(i, node->child_len) {
@@ -487,7 +479,6 @@ void UBFMSearcherLocal::expand(Node *node) {
         next_node->ply = node->ply+1;
         next_node->parent_move = moveList[i];
     }
-    //node->lock_node.unlock();
 }
 void UBFMSearcherLocal::predict(Node *node) {
     
@@ -503,7 +494,6 @@ void UBFMSearcherLocal::predict(Node *node) {
         auto f_all = torch::stack(v).reshape({FEAT_SIZE, 3, 3});
         tensor_list.push_back(f_all);
     }
-    Tee<<tensor_list.size()<<std::endl;
     auto feat_tensor = torch::stack(tensor_list);
 
     this->group->lock_gpu.lock();
@@ -518,7 +508,6 @@ void UBFMSearcherLocal::predict(Node *node) {
     REP(i, node->child_len) {
         auto state = NodeUnknown;
         auto score = to_nnscore(output[i][0].item<float>());     
-       // auto score = noise(1.0);     
         if (score >= NNScore(1.0)) {
             score = NNScore(0.8999);
         } else if (score <= NNScore(-1.0)) {
@@ -537,11 +526,9 @@ void UBFMSearcherLocal::predict(Node *node) {
             score = score_win(child->ply);
             state = NodeWin;
         }*/
-        //child->lock_node.lock();
         child->n += 1;
         child->w = score;
         child->state = state;
-        //child->lock_node.unlock();
     }
 }
 Node *UBFMSearcherLocal::next_child(const Node *node) const {
@@ -552,8 +539,7 @@ Node *UBFMSearcherLocal::next_child(const Node *node) const {
     REP(i, node->child_len) {
         auto child = node->child(i);
         if (child->is_resolved()) { continue; }
-        auto score = -child->w + noise();
-        //auto score = rand_double();
+        auto score = -child->w;
         if (score > best_score) {
             best_score = score;
             min_num = child->n;
@@ -565,8 +551,9 @@ Node *UBFMSearcherLocal::next_child(const Node *node) const {
             }
         }
     }
-    best_child->n++;
-    //ASSERT(best_child != nullptr);
+    if (best_child != nullptr) {
+        best_child->n++;
+    }
     return best_child;
 }
 Node *UBFMSearcherLocal::next_child2(const Node *node) const {
@@ -605,8 +592,6 @@ void UBFMSearcherLocal::update_node(Node *node) {
         Tee<<node->str()<<std::endl;
     });
 
-    //node->lock_node.lock();
-
     REP(i, child_len) {
         auto child = node->child(i);
 
@@ -619,8 +604,6 @@ void UBFMSearcherLocal::update_node(Node *node) {
                 node->state = NodeWin;
                 node->w = -child->w;
                 node->best_move = child->parent_move;
-                
-                //node->lock_node.unlock();
                 
                 return;
             } else if (child->is_win()) {
@@ -648,31 +631,19 @@ void UBFMSearcherLocal::update_node(Node *node) {
     if (child_len == draw_num) {
         node->state = NodeDraw;
         node->w = NNScore(0.0);
-
-        //node->lock_node.unlock();
-
         return;
     } else if (child_len == lose_num) {
         node->state = NodeLose;
         node->w = -best_child->w;
         node->best_move = best_child->parent_move;
-    
-        //node->lock_node.unlock();
-    
         return;
     } else if (child_len == (draw_num + lose_num)) {
         node->state = NodeDraw;
         node->w = NNScore(0.0);
-    
-        //node->lock_node.unlock();
-    
         return;
     }
     node->w = -best_child->w;
     node->best_move = best_child->parent_move;
-
-    //node->lock_node.unlock();
-
 }
 
 
@@ -688,10 +659,7 @@ void UBFMSearcherGlobal::add_replay_buffer(const Node * node) const {
 }
 void test_ubfm() {
     g_searcher_global.init();
-    //game::Position pos(74241);
     game::Position pos;
-    //pos = pos.next(Move(2));
-    //pos = pos.next(Move(1));
     Tee<<pos<<std::endl;
     Timer timer;
     timer.start();

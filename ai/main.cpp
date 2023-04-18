@@ -19,7 +19,7 @@ int main(int argc, char *argv[]){
     //search::test_search();
     //game::test_nn();
     //selfplay::test_selfplay();
-    ubfm::test_ubfm();
-    //selfplay::execute_selfplay();
+    //ubfm::test_ubfm();
+    selfplay::execute_selfplay();
     return 0;
 }
