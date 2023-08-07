@@ -1,70 +1,80 @@
-#include <unordered_map>
+#ifndef __SEARCH_HPP__
+#define __SEARCH_HPP__
+
+#include <climits>
 #include "game.hpp"
 #include "common.hpp"
+#include "movelegal.hpp"
 
 namespace search {
 
-int search(game::Position &pos, int alpha, int beta) {
+constexpr int SEARCH_MATE = 10000;
+constexpr int SEARCH_MAX  = 20000;
+constexpr int SEARCH_MIN  = -SEARCH_MAX;
+
+int search(game::Position &pos, int alpha, int beta, int depth);
+
+Move search_root(game::Position &pos, int depth, int &best_sc) {
+    auto best_move = MOVE_NONE;
+    auto best_score = -SEARCH_MATE;
+    auto alpha = SEARCH_MIN;
+    auto beta = SEARCH_MAX;
+    movelist::MoveList ml;
+    gen::legal_moves(pos,ml);
+
+    for (const auto m : ml) {
+        auto next_pos = pos.next(m);
+        const auto score = -search(next_pos,-beta, -alpha, depth-1);
+        if (score > best_score) {
+            best_score = score;
+            best_move = m;
+            if (score > alpha) {
+                alpha = score;
+            }
+        }
+    }
+    best_sc = best_score;
+    return best_move;
+}
+
+int search(game::Position &pos, int alpha, int beta, int depth) {
     ASSERT2(pos.is_ok(),{
         Tee<<pos<<std::endl;
     });
+    ASSERT(alpha < beta);
     if (pos.is_draw()) {
         return 0;
     }
     if (pos.is_lose()) {
-        return -1;
+        return -SEARCH_MATE + 10;
+    }
+    if (pos.is_win()) {
+        return SEARCH_MATE - 10;
+    }
+    if (depth < 0) {
+        return 0;
     }
     movelist::MoveList ml;
-    pos.legal_moves(ml);
-    auto best_score = -1;
+    gen::legal_moves(pos, ml);
+    auto best_score = SEARCH_MIN;
     for (const auto m : ml) {
-        ASSERT2(move_is_ok(m),{
-            Tee<<pos<<std::endl;
-            Tee<<m<<std::endl;
-        });
         auto next_pos = pos.next(m);
-        const auto score = -search(next_pos, -beta, -alpha);
+        const auto score = -search(next_pos, -beta, -alpha, depth-1);
         if (score > best_score) {
             best_score = score;
             alpha = score;
             if (score >= beta) {
-                return score;
+                return best_score;
             }
         }
     }
+    if (best_score == SEARCH_MIN) {
+        return -SEARCH_MATE + 7;
+    }
     return best_score;
 }
-uint32 perft(game::Position &pos, std::unordered_map<uint32, int> &hash) {
-    ASSERT2(pos.is_ok(),{
-        Tee<<pos<<std::endl;
-    });
-    if (hash.count(pos.hash_key()) == 0) {
-        hash[pos.hash_key()] = 1;
-    }
-    if (pos.is_draw()) {
-        return 1;
-    }
-    if (pos.is_lose()) {
-        return 1;
-    }
-    movelist::MoveList ml;
-    pos.legal_moves(ml);
-    auto node_num = 0u;
-    for (const auto m : ml) {
-        ASSERT2(move_is_ok(m),{
-            Tee<<pos<<std::endl;
-            Tee<<m<<std::endl;
-        });
-        auto next_pos = pos.next(m);
-        node_num += perft(next_pos, hash);
-    }
-    return node_num;
-}
 void test_search() {
-    std::unordered_map<uint32,int> hash;
-    game::Position pos;
-    Tee<<perft(pos,hash)<<std::endl;
-    Tee<<hash.size()<<std::endl;
 }
 
 }
+#endif

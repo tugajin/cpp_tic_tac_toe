@@ -19,6 +19,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <random>
+#include <iostream>
+#include <thread>
 // constants
 
 #undef FALSE
@@ -60,10 +62,15 @@ typedef std::uint16_t uint16;
 typedef std::uint32_t uint32;
 typedef std::uint64_t uint64;
 
+#if DEBUG
 
 #define ASSERT(a) { if (!(a)) { Tee<<"file:"<<__FILE__<<" line:"<<__LINE__<<std::endl; std::exit(EXIT_FAILURE); }  }
 #define ASSERT2(a,f) { if (!(a)) { Tee<<"file:"<<__FILE__<<" line:"<<__LINE__<<std::endl; f; std::exit(EXIT_FAILURE); }  }
 
+#else
+#define ASSERT(a) {}
+#define ASSERT2(a,f) {}
+#endif
 std::string timestamp();
 
 class TeeStream {
@@ -124,6 +131,13 @@ double rand_double() {
 	return distr(eng);
 }
 
+double rand_gaussian(const double mean, const double variance) {
+	std::random_device seed_gen;
+    std::default_random_engine engine(seed_gen());
+    std::normal_distribution<> dist(mean, variance);
+	return dist(engine);
+}
+
 int my_rand(int i) {
 	return int(rand_int_64() % i);
 }
@@ -135,6 +149,12 @@ std::string trim(const std::string s) {
 		str = str.substr(pos + 1);
 	}
 	return str;
+}
+
+std::string padding_str(std::string const &str, int n) {
+    std::ostringstream oss;
+    oss << std::setw(n) << str;
+    return oss.str();
 }
 
 bool is_exists_file(const std::string path) {
@@ -162,6 +182,10 @@ template<class T> std::string to_string(T x) {
 	std::stringstream ss;
 	ss << x;
 	return ss.str();
+}
+
+void my_sleep(const int  millisec) {
+	std::this_thread::sleep_for(std::chrono::milliseconds(millisec));
 }
 
 class Timer {

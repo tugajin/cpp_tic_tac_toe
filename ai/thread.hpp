@@ -10,7 +10,7 @@ protected :
 
 public :
    Lockable(){}
-   Lockable(Lockable && lock) {
+   Lockable(Lockable && /*lock*/) {
    }
    void lock () {
     this->mutex.lock();

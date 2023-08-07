@@ -7,7 +7,12 @@
 #include "common.hpp"
 #include "util.hpp"
 #include "movelist.hpp"
-
+namespace game {
+class Position;
+}
+namespace hash {
+Key hash_key(const game::Position &pos);
+}
 namespace game {
 class Position {
 public:
@@ -32,11 +37,11 @@ public:
             this->pos_turn = BLACK;
         }
         hash >>= 1;
-        int self_pieces[POS_SIZE] = {};
-        int enemy_pieces[POS_SIZE] = {};
+        int self_pieces[SQUARE_SIZE] = {};
+        int enemy_pieces[SQUARE_SIZE] = {};
         REP_POS(i) {
             auto piece = hash & 3;
-            const auto sq = POS_SIZE - i - 1;
+            const auto sq = SQUARE_SIZE - i - 1;
             if (piece == 0) {
             } else if (piece == 1) {
                 self_pieces[sq] = 1;
@@ -137,33 +142,29 @@ public:
         };
         this->find_special_sp(square,func);
     }
-    int has_win() const {
-        int sq[POS_SIZE] = {};
+    bool is_win() const {
+        int sq[SQUARE_SIZE] = {};
         this->reach_sq(sq);
         REP_POS(i) {
             if (sq[i] == 1) {
-                return i;
+                return true;
             }
         }
-        return -1;
+        return false;
     }
     bool is_draw() const {
-        return this->all_piece_count() == POS_SIZE;
+        return this->all_piece_count() == SQUARE_SIZE;
     }
     bool is_done() const {
         return this->is_lose() || this->is_draw();
+    }
+    int ply() const {
+        return this->all_piece_count();
     }
     Position next(const Move action) const {
         auto p = Position(this->enemy_pieces, this->self_pieces, change_turn(this->pos_turn));
         p.enemy_pieces[action] = 1;
         return p;
-    }
-    void legal_moves(movelist::MoveList &ml) const {
-        REP_POS(pos) {
-            if (this->self_pieces[pos] == 0 && this->enemy_pieces[pos] == 0) {
-                ml.add(Move(pos));
-            }
-        }
     }
     Color turn() const {
         return this->pos_turn;
@@ -196,34 +197,10 @@ public:
         }
         return true;
     }
-    uint32 hash_key() const {
-        auto hash_key_body = [&](const int sp[], const int ep[]) {
-            uint32 k = 0;
-            REP_POS(i) {
-                k <<= 2;
-                if (sp[i] == 1) {
-                    k |= 1;
-                } else if (ep[i] == 1) {
-                    k |= 2;
-                } else {
-                    k |= 0;
-                }
-            }
-            k <<= 1;
-            if (this->turn() == WHITE) {
-                k |= 1;
-            }
-            return k;
-        };
-        if (this->turn() == BLACK) {
-            return hash_key_body(this->self_pieces, this->enemy_pieces);
-        } else {
-            return hash_key_body(this->enemy_pieces, this->self_pieces);
-        }
-    }
+
     std::string str() const {
-        std::string str = to_string(std::bitset<19>(this->hash_key())) + "\n";
-        str += to_string(this->hash_key()) + "\n";
+        std::string str = to_string(std::bitset<19>(this->history())) + "\n";
+        str += to_string(this->history()) + "\n";
         str += color_str(this->turn()) + "\n";
         REP(x, 3) {
             REP(y, 3) {
@@ -250,163 +227,23 @@ public:
         }
         return str;
     }
+    Key history() const {
+        return hash::hash_key(*this);
+    }
 	friend std::ostream& operator<<(std::ostream& os, const Position& pos) {
         os << pos.str();
 		return os;
 	}
-    Feature feature() const {
-        Feature feat(FEAT_SIZE, std::vector<int>(POS_SIZE, 0));
-        //channel file rank
-        int reach_point[POS_SIZE] = {};
-        this->reach_sq(reach_point);
-        int dangerous_point[POS_SIZE] = {};
-        this->dangerous_sq(dangerous_point);
-        auto reach_sq_num = this->piece_count(reach_point);
-        auto dangerous_sq_num = this->piece_count(dangerous_point);
-        REP_POS(i) {
-            feat[0][i] = this->self(i);
-            feat[1][i] = this->enemy(i);
-            feat[2][i] = reach_point[i];
-            feat[3][i] = dangerous_point[i];
-            feat[4][i] = (reach_sq_num == 0) ? 1 : 0;
-            feat[5][i] = (reach_sq_num == 1) ? 1 : 0;
-            feat[6][i] = (reach_sq_num == 2) ? 1 : 0;
-            feat[7][i] = (dangerous_sq_num == 0) ? 1 : 0;
-            feat[8][i] = (dangerous_sq_num == 1) ? 1 : 0;
-            feat[9][i] = (dangerous_sq_num == 2) ? 1 : 0;
-        }
-        return feat;
-    }
+
 private:
-    int self_pieces[POS_SIZE];
-    int enemy_pieces[POS_SIZE];
+    int self_pieces[SQUARE_SIZE];
+    int enemy_pieces[SQUARE_SIZE];
     Color pos_turn;
 };
-Position from_hash(const uint32 h) {
-    return Position(h);
-}
+
 void test_pos() {
-    
-    Position pos;
-    movelist::MoveList ml;
-    pos.legal_moves(ml);
-    ASSERT2(ml.len() == 9, {
-        Tee<<pos<<std::endl;
-        Tee<<"ml_len:"<<ml.len()<<std::endl;
-    });
-    ASSERT(!pos.is_done());
-    ASSERT(!pos.is_lose());
-    ASSERT(pos.is_ok());
-    Position pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-
-    pos = pos.next(ml[0]);
-    ml.init();
-    pos.legal_moves(ml);
-    ASSERT(ml.len() == 8);
-    ASSERT(pos.turn() == WHITE);
-    ASSERT(pos.is_ok());
-    ASSERT2(pos.enemy(0) == 1,{
-        Tee<<pos<<std::endl;
-        Tee<<pos.self(0)<<std::endl;
-        Tee<<pos.enemy(0)<<std::endl;
-    });
-    pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-    
-    pos = pos.next(Move(3));
-    ml.init();
-    pos.legal_moves(ml);
-    ASSERT(ml.len() == 7);
-    ASSERT(pos.is_ok());
-    ASSERT2(pos.enemy(3) == 1,{
-        Tee<<pos<<std::endl;
-        Tee<<pos.self(0)<<std::endl;
-        Tee<<pos.enemy(0)<<std::endl;
-    });
-    ASSERT(!pos.is_done());
-    ASSERT(!pos.is_lose());
-    pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-
-    pos = pos.next(Move(1));
-    ml.init();
-    pos.legal_moves(ml);
-    ASSERT(ml.len() == 6);
-    ASSERT(!pos.is_done());
-    ASSERT(!pos.is_lose());
-    ASSERT(pos.is_ok());
-    pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-
-    pos = pos.next(Move(4));
-    ml.init();
-    pos.legal_moves(ml);
-    ASSERT(ml.len() == 5);
-    ASSERT(!pos.is_done());
-    ASSERT(!pos.is_lose());
-    ASSERT(pos.is_ok());
-    ASSERT(pos.has_win() >= 0);
-    pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-
-    pos = pos.next(Move(2));
-    ml.init();
-    pos.legal_moves(ml);
-    ASSERT(ml.len() == 4);
-    ASSERT2(pos.is_done(),{
-        Tee<<pos<<std::endl;
-    });
-    ASSERT(pos.is_lose());
-    ASSERT(pos.is_ok());
-    pos2 = Position(pos.hash_key());
-    ASSERT2(pos.hash_key() == pos2.hash_key(),{
-        Tee<<pos<<std::endl;
-        Tee<<pos2<<std::endl;
-    });
-}
+}    
 void test_nn() {
-    // Position pos;
-    // std::array<Move,7> ml = {Move(0), Move(1), Move(4), Move(8), Move(6), Move(2), Move(3)};
-    // for (auto m : ml) {
-    //     Tee<<pos<<std::endl;
-    //     auto f = pos.feature();
-    //     auto f0 = torch::tensor(torch::ArrayRef<int>(f[0]));
-    //     auto f1 = torch::tensor(torch::ArrayRef<int>(f[1]));
-    //     auto f2 = torch::tensor(torch::ArrayRef<int>(f[2]));
-    //     auto f3 = torch::tensor(torch::ArrayRef<int>(f[3]));
-    //     auto f_all = torch::cat({f0, f1, f2, f3}).reshape({1,4,3,3});
-    //     Tee<<f_all<<std::endl;
-    //     Tee<<"--------------------------\n";
-    //     pos = pos.next(m);
-    // }
-    // Position pos;
-    // std::vector<at::Tensor> tensor_list;
-    // auto f = pos.feature();
-    // auto f0 = torch::tensor(torch::ArrayRef<int>(f[0]));
-    // auto f1 = torch::tensor(torch::ArrayRef<int>(f[1]));
-    // auto f2 = torch::tensor(torch::ArrayRef<int>(f[2]));
-    // auto f3 = torch::tensor(torch::ArrayRef<int>(f[3]));
-    // auto f_all = torch::cat({f0, f1, f2, f3}).reshape({FEAT_SIZE, 3, 3});
-    // tensor_list.push_back(f_all);
-    // tensor_list.push_back(f_all);
-    // torch::Tensor tsr = torch::stack(tensor_list);
-    // Tee<<tsr<<std::endl;
 }
 }
 #endif

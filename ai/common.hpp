@@ -1,14 +1,20 @@
 #ifndef __COMMON_HPP__
 #define __COMMON_HPP__
 
-constexpr int POS_SIZE = 9;
-constexpr int FEAT_SIZE = 10;
+#include "util.hpp"
 
-#define REP(i,e) for (auto (i) = 0; (i) < (e); ++(i))
-#define REP_POS(i) for (auto (i) = 0; (i) < POS_SIZE; ++(i))
+constexpr int SQUARE_SIZE = 9;
+constexpr int FEAT_SIZE = 10;
+constexpr int FILE_SIZE = 3;
+constexpr int RANK_SIZE = 3;
+
+#define REP(i,e) for (auto i = 0; i < (e); ++i)
+#define REP_POS(i) for (auto i = 0; i < SQUARE_SIZE; ++i)
 
 typedef std::vector<std::vector<int>> Feature;
 typedef double NNScore;
+typedef uint64 Key;
+
 
 enum Move : int {
     MOVE_NONE = -1
@@ -46,6 +52,18 @@ NNScore to_nnscore(const float sc) {
         score = -9999;
     }
     return static_cast<NNScore>(static_cast<double>(score) / 10000.0);
+}
+inline std::string move_str(const Move m) {
+    return to_string(static_cast<int>(m));
+}
+void check_mode() {
+#if DEBUG
+    Tee<<"debug mode\n";
+#elif NDEBUG
+    Tee<<"release mode\n";
+#else
+    Tee<<"unknown mode\n";
+#endif
 }
 
 #endif

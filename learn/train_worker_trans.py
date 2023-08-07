@@ -4,10 +4,8 @@
 
 # パッケージのインポート
 from pathlib import Path
-from single_network import single_network
-from train_network import train_network
-from evaluate_network import *
-#from evaluate_best_player import *
+from train_network_trans import train_network
+from evaluate_network_trans import *
 import multiprocessing as mp
 import sys
 import torch
@@ -43,5 +41,7 @@ if __name__ == '__main__':
     load_data_list = load_selfplay_data()
     # パラメータ更新部
     train_network(epoch_num, batch_size, load_data_list)
+    # 新パラメータ評価部
+    update_best_player()
     conv_jit()
     clean_selfplay_data()
