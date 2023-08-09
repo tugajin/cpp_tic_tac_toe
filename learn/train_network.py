@@ -19,7 +19,7 @@ import glob
 import re
 
 # パラメータの準備
-RN_EPOCHS = 32 # 学習回数
+RN_EPOCHS = 30 # 学習回数
 RN_BATCH_SIZE = 128 # バッチサイズ
 LAMBDA = 0.7
 
@@ -30,6 +30,7 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
 
     if path_list is None:
         path_list = Path('./data').glob('*.json')
+        
     # ベストプレイヤーのモデルの読み込み
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -47,7 +48,7 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
         optimizer.load_state_dict(checkpoint['optimizer'])
         iterate = checkpoint['iterate'] + 1
 
-    dataset = HistoryDataset(path_list)
+    dataset = HistoryDataset(path_list,augmente=False)
     dataset_len = len(dataset)
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True) 
     start = time.time()
@@ -67,7 +68,8 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
             optimizer.zero_grad()
             outputs = model(x)
             outputs = torch.squeeze(outputs)
-            loss =  (LAMBDA * torch.sum((outputs - y0) ** 2)) + ((1 - LAMBDA) * torch.sum((outputs - y1) ** 2))
+            #loss =  (LAMBDA * torch.sum((outputs - y0) ** 2)) + ((1 - LAMBDA) * torch.sum((outputs - y1) ** 2))
+            loss =  torch.sum((outputs - y0) ** 2)
             loss.backward()
             optimizer.step()
             sum_loss += loss.item()
@@ -83,6 +85,7 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
     torch.save(model.state_dict(), './model/best_single.h5')
     dump_loss(sum_loss/sum_num)
     save_checkpoint(iterate=iterate, model=model, optimizer=optimizer)
+    conv_jit()
     
 def dump_loss(loss):
     selfplay_df = pd.read_csv("selfplay_result.csv")
@@ -105,5 +108,4 @@ def save_checkpoint(iterate, model, optimizer):
 
 # 動作確認
 if __name__ == '__main__':
-    #train_network()
-    dump_loss(0.2)
+    train_network()

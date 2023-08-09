@@ -29,7 +29,7 @@ public:
     void open() {
         this->info.clear();
         std::filesystem::create_directory("data");
-        auto filename = "./data/" + timestamp() + "_" + to_string(my_rand(9999)) + ".json";
+        auto filename = "./data/selfplay_" + timestamp() + "_" + to_string(my_rand(9999)) + ".json";
         this->ofs.open(filename);
     }
     void close() {
@@ -417,7 +417,7 @@ void DescentSearcherLocal::selfplay() {
                 break;
             }
 #if 1
-            this->po_num = 50;
+            this->po_num = 25;
             
             auto best_move = execute_descent(pos);
            

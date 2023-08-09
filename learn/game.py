@@ -46,6 +46,12 @@ class State:
         return gamelibs.mate_search(self.pos, ply)
     def in_checked(self):
         return gamelibs.in_checked(self.pos)
+    def mirror(self):
+        return  self.pos.mirror()
+    def rotate(self):
+        return  self.pos.rotate()
+    def history(self):
+        return self.pos.history()
 def from_hash(h):
     return State(gamelibs.from_hash(h))
 

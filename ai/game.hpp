@@ -234,7 +234,34 @@ public:
         os << pos.str();
 		return os;
 	}
-
+    // 左右反転
+    Position mirror() const {
+        int mirror_self_pieces[SQUARE_SIZE] = {};
+        int mirror_enemy_pieces[SQUARE_SIZE] = {};
+        REP(rank,3) {
+            REP(file,3) {
+                const auto sq = file * 3 + rank;
+                const auto mirror_sq = file * 3 + (2-rank);
+                mirror_self_pieces[mirror_sq] = this->self_pieces[sq];
+                mirror_enemy_pieces[mirror_sq] = this->enemy_pieces[sq];
+            }
+        }
+        return Position(mirror_self_pieces, mirror_enemy_pieces, this->pos_turn);
+    }
+    // 45度回転
+    Position rotate() const {
+        int rotate_self_pieces[SQUARE_SIZE] = {};
+        int rotate_enemy_pieces[SQUARE_SIZE] = {};
+        REP(file,3) {
+            REP(rank,3) {
+                const auto sq = file * 3 + rank;
+                const auto rotate_sq = (2 - file) + rank * 3;
+                rotate_self_pieces[rotate_sq] = this->self_pieces[sq];
+                rotate_enemy_pieces[rotate_sq] = this->enemy_pieces[sq];
+            }
+        }
+        return Position(rotate_self_pieces, rotate_enemy_pieces, this->pos_turn);
+    }
 private:
     int self_pieces[SQUARE_SIZE];
     int enemy_pieces[SQUARE_SIZE];
@@ -242,6 +269,7 @@ private:
 };
 
 void test_pos() {
+  
 }    
 void test_nn() {
 }

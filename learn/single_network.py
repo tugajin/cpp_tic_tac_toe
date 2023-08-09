@@ -13,7 +13,7 @@ from game import *
 # パラメータの準備
 DN_FILTERS  = 256 # 畳み込み層のカーネル数（本家は256）
 DN_RESIDUAL_NUM =  16 # 残差ブロックの数（本家は19）
-DN_INPUT_SHAPE = (3, 3, 10) # 入力シェイプ
+DN_INPUT_SHAPE = (3, 3, 2) # 入力シェイプ
 DN_OUTPUT_SIZE = 3 * 3 * 3 * 1 # 配置先(3*4) * 駒の種類 * 移動方向
 
 class ResNetBlock(nn.Module):

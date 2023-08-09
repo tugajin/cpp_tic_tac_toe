@@ -7,7 +7,7 @@ import numpy as np
 import time
 from game import *
 class HistoryDataset(Dataset):
-    def __init__(self, root):
+    def __init__(self, root, augmente = False):
         super().__init__()
         data = []
         for path in root:
@@ -20,8 +20,28 @@ class HistoryDataset(Dataset):
                     pass
         data2 = []
         for d in data:
-            data2.append([d["p"], d["s"], d["r"]])
-        #data2 = data2[0:100]
+            if augmente:
+                state = from_hash(d["p"])
+                mirror = state.mirror()
+                data2.append([state.history(), d["s"], d["r"]])
+                data2.append([mirror.history(), d["s"], d["r"]])
+                
+                rotate90 = state.rotate()
+                mirror90 = rotate90.mirror()
+                data2.append([rotate90.history(), d["s"], d["r"]])
+                data2.append([mirror90.history(), d["s"], d["r"]])
+
+                rotate180 = rotate90.rotate()
+                mirror180 = rotate180.mirror()
+                data2.append([rotate180.history(), d["s"], d["r"]])
+                data2.append([mirror180.history(), d["s"], d["r"]])
+
+                rotate270 = rotate180.rotate()
+                mirror270 = rotate180.mirror()
+                data2.append([rotate270.history(), d["s"], d["r"]])
+                data2.append([mirror270.history(), d["s"], d["r"]])
+            else:
+                data2.append([d["p"], d["s"], d["r"]])
         self.data = data2
         print(f"len:{len(data)}")
     # ここで取り出すデータを指定している
@@ -42,4 +62,5 @@ class HistoryDataset(Dataset):
 if __name__ == '__main__':
     history_path = sorted(Path('./data').glob('*.json'))
     dataset = HistoryDataset(history_path) 
+         
  

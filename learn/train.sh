@@ -1,7 +1,8 @@
 #!/bin/sh
-while true
+
+for i in `seq 0 100000`
 do
-	./cpp_tic_tac_toe 1000 || exit 1
-	python3 merge_count.py || exit 1
-	python3 train_worker.py || exit 1
+    ./cpp_tic_tac_toe 1000
+    python3 train.py $i
+    rm -rf data/selfplay*.json
 done
