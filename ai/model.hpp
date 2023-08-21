@@ -104,10 +104,10 @@ void test_model() {
 nn::NNScore predict_problem(const Key k) {
     auto pos = hash::from_hash(k);
     //Tee<<pos<<std::endl;
-    if (pos.is_win()) {
-        return nn::NNScore(0.99);
-    } else if (pos.is_lose()) {
+    if (pos.is_lose()) {
         return nn::NNScore(-0.99);
+    } else if (pos.is_win()) {
+        return nn::NNScore(0.99);
     }
     auto feat = nn::feature(pos);
     std::vector<nn::Feature> feat_list;

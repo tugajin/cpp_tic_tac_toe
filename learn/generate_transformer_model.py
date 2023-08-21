@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from game import *
 import numpy as np
 
+DN_INPUT_SHAPE = (3, 3, 2) # 入力シェイプ
+
 class Conv2DwithBatchNorm(nn.Module):
     def __init__(self, input_ch, output_ch, kernel_size):
         super(Conv2DwithBatchNorm, self).__init__()
@@ -48,17 +50,20 @@ class TransformerModel(nn.Module):
         encoder_layer = torch.nn.TransformerEncoderLayer(channel_num, nhead=8,dim_feedforward=channel_num*4)
         self.encoder_ = torch.nn.TransformerEncoder(encoder_layer,layer_num)
         self.value_head_ = ValueHead(channel_num, 1)
-        self.positional_encoding_ = torch.nn.Parameter(torch.zeros([square_num, 1, channel_num]), requires_grad=True)
+        #self.positional_encoding_ = torch.nn.Parameter(torch.zeros([square_num, 1, channel_num]), requires_grad=True)
+        self.positional_encoding_ = torch.nn.Parameter(torch.zeros([1, square_num, channel_num]), requires_grad=True)
 
     def forward(self, x):
         batch_size = x.shape[0]
         x = x.view([batch_size, 2, 9])
-        x = x.permute([2, 0, 1])
+        #x = x.permute([2, 0, 1])
+        x = x.permute([0, 2, 1])
         x = self.first_encoding_(x)
         x = F.relu(x)
         x = x + self.positional_encoding_
         x = self.encoder_(x)
-        x = x.permute([1, 2, 0])
+        #x = x.permute([1, 2, 0])
+        x = x.permute([0, 2, 1])
         x = x.view([batch_size, self.channel_num, 3, 3])
         value = self.value_head_.forward(x)
         return value

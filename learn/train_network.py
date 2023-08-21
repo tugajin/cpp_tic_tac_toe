@@ -17,7 +17,7 @@ import time
 import pandas as pd
 import glob
 import re
-
+from evaluate_network2 import *
 # パラメータの準備
 RN_EPOCHS = 30 # 学習回数
 RN_BATCH_SIZE = 128 # バッチサイズ
@@ -37,7 +37,7 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
     checkpoint_list = glob.glob('model/*.save')
     model = SingleNet()
     model = model.to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.00001)
+    optimizer = optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.00001)
 
     if len(checkpoint_list) != 0:
         checkpoint_list.sort(key=lambda s: int(re.search(r'\d+', s).group()))
@@ -68,8 +68,10 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
             optimizer.zero_grad()
             outputs = model(x)
             outputs = torch.squeeze(outputs)
-            #loss =  (LAMBDA * torch.sum((outputs - y0) ** 2)) + ((1 - LAMBDA) * torch.sum((outputs - y1) ** 2))
+            
+            # loss =  (LAMBDA * torch.sum((outputs - y0) ** 2)) + ((1 - LAMBDA) * torch.sum((outputs - y1) ** 2))
             loss =  torch.sum((outputs - y0) ** 2)
+
             loss.backward()
             optimizer.step()
             sum_loss += loss.item()
@@ -83,13 +85,15 @@ def train_network(epoch_num=RN_EPOCHS, batch_size=RN_BATCH_SIZE, path_list=None)
     
     # 最新プレイヤーのモデルの保存
     torch.save(model.state_dict(), './model/best_single.h5')
-    dump_loss(sum_loss/sum_num)
     save_checkpoint(iterate=iterate, model=model, optimizer=optimizer)
     conv_jit()
-    
-def dump_loss(loss):
+    ans = evaluate_problem()
+    dump_loss(sum_loss/sum_num,ans)
+
+def dump_loss(loss,ans):
     selfplay_df = pd.read_csv("selfplay_result.csv")
     selfplay_df.iloc[-1, selfplay_df.columns.get_loc("loss")] = loss  
+    selfplay_df.iloc[-1, selfplay_df.columns.get_loc("ans")] = ans  
     if os.path.isfile("history.csv"):
         history_df = pd.read_csv("history.csv")
         history_df = pd.concat([history_df, selfplay_df],axis=0)

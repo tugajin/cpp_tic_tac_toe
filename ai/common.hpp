@@ -4,7 +4,6 @@
 #include "util.hpp"
 
 constexpr int SQUARE_SIZE = 9;
-constexpr int FEAT_SIZE = 10;
 constexpr int FILE_SIZE = 3;
 constexpr int RANK_SIZE = 3;
 

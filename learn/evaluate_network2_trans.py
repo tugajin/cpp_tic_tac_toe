@@ -7,7 +7,8 @@ from game import State
 from pathlib import Path
 from shutil import copy
 import numpy as np
-from single_network import *
+from generate_transformer_model import *
+from generate_poolformer_model import *
 import json
 
 # ベストプレイヤーの交代
@@ -26,7 +27,8 @@ def predict(model, state, device):
 def evaluate_problem():
     # ベストプレイヤーのモデルの読み込み
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = SingleNet()
+    #model = TransformerModel()
+    model = PoolformerModel()
     model.load_state_dict(torch.load('./model/best_single.h5'))
     model = model.to(device)
     model.eval()

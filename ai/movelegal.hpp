@@ -13,6 +13,7 @@ void legal_moves(const game::Position &pos, movelist::MoveList &ml) {
     }
 }
 void test_gen() {
+#if DEBUG
     REP(i,10000000) {
         auto pos = game::Position();
         while (1) {
@@ -36,6 +37,7 @@ void test_gen() {
             pos = pos.next(action);
         }
     }
+#endif
 }
 }
 

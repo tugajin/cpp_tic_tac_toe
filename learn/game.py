@@ -1,7 +1,9 @@
 import gamelibs
 import random
+import json
 
 pos_dict = {}
+ALL_POS_LEN = 5478
 
 MOVE_NONE = gamelibs.Move.MOVE_NONE
 
@@ -72,35 +74,28 @@ def len_pos_dict():
     return len(pos_dict)
    
 def gen_pos_list():
-    history = []
     # 状態の生成
-    for i in range(100000000000000000):
+    i = 0
+    reset_pos_dict()
+    while len_pos_dict() != ALL_POS_LEN:
         state = State()
         print(f"\rtry:{i} num:{len_pos_dict()}",end="")
         #ゲーム終了までのループ
         while True:
-            if state.hash_key() not in pos_dict:
-                history.append([0])
             append_pos_dict(state.hash_key())
             # ゲーム終了時
             if state.is_done():
                 break
-            if not state.in_checked():
-                action = state.mate_search(5)
-            else:
-                action = MOVE_NONE
-            if (action != MOVE_NONE):
-                m = action
-            else:
-                legal_actions = state.legal_actions()
-                if (len(legal_actions) == 0):
-                    break
-                m = legal_actions[random.randint(0, len(legal_actions)-1)]
+            legal_actions = state.legal_actions()
+            m = legal_actions[random.randint(0, len(legal_actions)-1)]
             # 次の状態の取得
             #print(state)
             state = state.next(m)
-    print(f"history_len:{len(history)}")
-    #write_data(history)
+        i += 1
+    key_list = sorted([k for k in pos_dict.keys()])
+    json_str = json.dumps(key_list)
+    with open(f"all_pos.json", mode='w') as f:
+        f.write(json_str)
 
 if __name__ == "__main__":
     #state = State()

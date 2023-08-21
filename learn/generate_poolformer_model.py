@@ -7,6 +7,9 @@ import torch.nn.functional as F
 from game import *
 import numpy as np
 
+DN_INPUT_SHAPE = (3, 3, 2) # 入力シェイプ
+
+
 class Attention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.):
         super().__init__()
@@ -124,17 +127,20 @@ class PoolformerModel(nn.Module):
         self.encoder_ = nn.Sequential(*[Block(dim=channel_num, num_heads=nhead) for _ in range(block_num)])
         self.channel_num = channel_num
         self.value_head_ = ValueHead(channel_num, 1)
-        self.positional_encoding_ = torch.nn.Parameter(torch.zeros([square_num, 1, channel_num]), requires_grad=True)
+        #self.positional_encoding_ = torch.nn.Parameter(torch.zeros([square_num, 1, channel_num]), requires_grad=True)
+        self.positional_encoding_ = torch.nn.Parameter(torch.zeros([1, square_num, channel_num]), requires_grad=True)
 
     def forward(self, x):
         batch_size = x.shape[0]
         x = x.view([batch_size, 2, 9])
-        x = x.permute([2, 0, 1])
+        #x = x.permute([2, 0, 1])
+        x = x.permute([0, 2, 1])
         x = self.first_encoding_(x)
         x = F.relu(x)
         x = x + self.positional_encoding_
         x = self.encoder_(x)
-        x = x.permute([1, 2, 0])
+        #x = x.permute([1, 2, 0])
+        x = x.permute([0, 2, 1])
         x = x.view([batch_size, self.channel_num, 3, 3])
 
         value = self.value_head_.forward(x)

@@ -1,6 +1,9 @@
 #!/bin/sh
-while true
+
+for i in `seq 0 31`
 do
-	./cpp_tic_tac_toe 1000 || exit 1
-	python3 train_worker_trans.py || exit 1
+    ./cpp_tic_tac_toe 1000
+    rm -rf data/resolved*.json
+    python3 train_trans.py $i
+    rm -rf data/selfplay*.json
 done

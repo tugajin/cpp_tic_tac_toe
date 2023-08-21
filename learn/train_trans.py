@@ -2,7 +2,7 @@ import subprocess
 from merge_count import *
 from merge_resolved import *
 from pseudo_data import *
-from train_network import *
+from train_network_trans import *
 import sys
 
 args = sys.argv
